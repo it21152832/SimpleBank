@@ -5,30 +5,67 @@ import (
 	"log"
 	"new/learning/user/api"
 	db "new/learning/user/db/sqlc"
-
-	_ "github.com/lib/pq"
-)
-
-const (
-	dbDriver      = "postgres"
-	dbSource      = "postgresql://root:secret@localhost:5432/user?sslmode=disable"
-	serverAddress = "0.0.0.0:8080"
+	"new/learning/user/util"
 )
 
 func main() {
-	conn, err := sql.Open(dbDriver, dbSource)
+	// Load configuration
+	config, err := util.LoadConfig(".")
 	if err != nil {
+		log.Printf("error loading config: %v", err)
+		return
+	}
+
+	// Establish a database connection
+	conn, err := sql.Open(config.DBDriver, config.DBSource)
+	if err != nil {
+		log.Printf("cannot connect to db: %v", err)
+		return
+	}
+	defer conn.Close() // Close the database connection when main exits
+
+	// Create a store instance using the database connection
+	store := db.NewStore(conn)
+	server,err := api.NewServer(config, store)
+	if err != nil{
 		log.Fatal("cannot connect to db", err)
 	}
 
-	store := db.NewStore(conn)
-	server := api.NewServer(store)
+	// Create a new server instance by passing the configuration and store
+	// server, err := api.NewServer(config, store)
+	// if err != nil {
+	// 	log.Printf("cannot create server: %v", err)
+	// 	return
+	// }
 
-	err = server.Start(serverAddress)
+	// Start the server using the configured address
+	err = server.Start(config.ServerAddress)
 	if err != nil {
-		log.Fatal("cannot start server", err)
+		log.Printf("cannot start server: %v", err)
+		return
 	}
 }
+
+// const (
+// 	dbDriver      = "postgres"
+// 	dbSource      = "postgresql://root:secret@localhost:5432/user?sslmode=disable"
+// 	serverAddress = "0.0.0.0:8080"
+// )
+
+// func main() {
+// 	conn, err := sql.Open(dbDriver, dbSource)
+// 	if err != nil {
+// 		log.Fatal("cannot connect to db", err)
+// 	}
+
+// 	store := db.NewStore(conn)
+// 	server := api.NewServer(store)
+
+// 	err = server.Start(serverAddress)
+// 	if err != nil {
+// 		log.Fatal("cannot start server", err)
+// 	}
+// }
 
 // package main
 
